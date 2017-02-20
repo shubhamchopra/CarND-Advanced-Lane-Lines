@@ -49,7 +49,7 @@ if __name__ == "__main__":
         # plt.title("Undistorted")
 
         transformed = perspTrans.transform(img)
-        transformed = cv2.polylines(transformed, [np.array(dstpts, np.int32)], isClosed= True, color=(255, 0, 0), thickness=3)
+        # transformed = cv2.polylines(transformed, [np.array(dstpts, np.int32)], isClosed= True, color=(255, 0, 0), thickness=3)
         # plt.subplot(2, 2, 3)
         # dst = cv2.polylines(img, [np.array(pts, np.int32)], isClosed=True, color=(255, 0, 0), thickness=3)
         # plt.imshow(dst)
