@@ -44,7 +44,7 @@ class Thresholding(Transform):
 
         combined = np.zeros_like(sChan)
         combined[(sMask == 1) | (sobelMask == 1)] = 255
-        return combined
+        return np.dstack((combined, combined, combined))
 
     def transform(self, img):
         dst = self._transformFunc(img)

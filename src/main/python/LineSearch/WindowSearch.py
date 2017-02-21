@@ -1,10 +1,12 @@
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
+import glob
 import logging
 from LineSearch.Line import *
 
 class HistogramSearch:
+    minPointsForValidFit = 1000
+
     def __init__(self):
         self.nwindows = 9
         self.margin = 100
@@ -13,11 +15,8 @@ class HistogramSearch:
         self.rightLane = Line()
 
     def fullLineSearch(self, img):
-        # out_img = np.copy(img)
         binary_img = np.zeros_like(img[:,:,0])
         binary_img[img[:,:,0] > 0] = 1
-        # plt.subplot(2, 1, 1)
-        # plt.imshow(binary_img, cmap="gray")
         histogram = np.sum(binary_img[binary_img.shape[0] / 2:, :], axis=0)
         midpoint = np.int(histogram.shape[0] / 2)
         leftx_base = np.argmax(histogram[:midpoint])
@@ -38,9 +37,6 @@ class HistogramSearch:
             xright_low = rightx_current - self.margin
             xright_high = rightx_current + self.margin
 
-            # cv2.rectangle(out_img, (xleft_low, ylow), (xleft_high, yhigh), (0,255,0), 2)
-            # cv2.rectangle(out_img, (xright_low, ylow), (xright_high, yhigh), (0,255,0), 2)
-
             nonzero_left = nonzero[(nonzero[:,0] >= ylow) & (nonzero[:,0] < yhigh) & (nonzero[:,1] >= xleft_low) & (nonzero[:,1] < xleft_high)]
             nonzero_right = nonzero[(nonzero[:,0] >= ylow) & (nonzero[:,0] < yhigh) & (nonzero[:,1] >= xright_low) & (nonzero[:,1] < xright_high)]
 
@@ -55,27 +51,12 @@ class HistogramSearch:
         left_lane_pix = np.concatenate(left_pixels)
         right_lane_pix = np.concatenate(right_pixels)
 
-        # self.leftLane = np.poly1d(np.polyfit(left_lane_pix[:,0], left_lane_pix[:,1], 2))
-        # logging.info("Left fit polynomial : \n{}".format(self.leftLane))
-        # self.rightLane = np.poly1d(np.polyfit(right_lane_pix[:,0], right_lane_pix[:,1], 2))
-        # logging.info("Right fit polynomial : \n{}".format(self.rightLane))
-        self.leftLane = self.leftLane.fitLine(left_lane_pix[:,1], left_lane_pix[:,0], fullLineSearch=True)
-        self.rightLane = self.rightLane.fitLine(right_lane_pix[:,1], right_lane_pix[:,0], fullLineSearch=True)
-
-        # ploty = np.linspace(0, binary_img.shape[0] - 1, binary_img.shape[0])
-        # left_fitx = left_fit(ploty)
-        # right_fitx = right_fit(ploty)
-        # avg_fit = (0.5*left_fit + 0.5*right_fit)(ploty)
-        # out_img[left_lane_pix[:,0], left_lane_pix[:,1]] = [255,0,0]
-        # out_img[right_lane_pix[:,0], right_lane_pix[:,1]] = [0,0,255]
-        # plt.subplot(2,1,2)
-        # plt.imshow(out_img)
-        # plt.plot(left_fitx, ploty, color = 'yellow')
-        # plt.plot(right_fitx, ploty, color='yellow')
-        # plt.plot(avg_fit, ploty, color='yellow')
-        # plt.xlim(0, 1280)
-        # plt.ylim(720,0)
-        # plt.show()
+        if self.sanityCheck(left_lane_pix[:, 0], left_lane_pix[:,1], right_lane_pix[:,0], right_lane_pix[:,1], img.shape) \
+                or not (self.leftLane.initialized and self.rightLane.initialized):
+            self.leftLane = self.leftLane.fitLine(left_lane_pix[:, 1], left_lane_pix[:, 0], fullLineSearch=True)
+            self.rightLane = self.rightLane.fitLine(right_lane_pix[:, 1], right_lane_pix[:, 0], fullLineSearch=True)
+        else:
+            logging.info("Sanity check failure in full search. Using best fit")
 
     def getLaneIds(self, line, nonzero):
         xs = line.applyCurrent(nonzero[:, 0])
@@ -89,12 +70,28 @@ class HistogramSearch:
 
         nonzero = np.transpose(binary_img.nonzero())
 
-        def getLaneFit(line, nonzero):
-            lane_pix = self.getLaneIds(line, nonzero)
-            return line.fitLine(lane_pix[:, 1], lane_pix[:, 0])
+        leftLanePoints = self.getLaneIds(self.leftLane, nonzero)
+        rightLanePoints = self.getLaneIds(self.rightLane, nonzero)
 
-        self.leftLane = getLaneFit(self.leftLane, nonzero)
-        self.rightLane = getLaneFit(self.rightLane, nonzero)
+        if self.sanityCheck(leftLanePoints[:, 0], leftLanePoints[:, 1], rightLanePoints[:, 0], rightLanePoints[:, 1], img.shape):
+            self.leftLane = self.leftLane.fitLine(leftLanePoints[:, 1], leftLanePoints[:, 0])
+            self.rightLane = self.rightLane.fitLine(rightLanePoints[:, 1], rightLanePoints[:, 0])
+        else:
+            #need to do a full search
+            logging.info("Doing a full search")
+            self.fullLineSearch(img)
+
+
+    def getLaneLines(self, img):
+        if self.leftLane.initialized and self.rightLane.initialized:
+            # logging.info("Using line information in lane search")
+            self.lineSearch(img)
+        else:
+            # logging.info("Using full line search")
+            self.fullLineSearch(img)
+
+        laneStats = self.getLaneStats(img.shape[0], img.shape[1])
+        return (laneStats, self.leftLane.current_fit, self.rightLane.current_fit)
 
     def showLanes(self, img, line):
         ploty = np.linspace(0, img.shape[0] - 1, img.shape[0])
@@ -126,20 +123,57 @@ class HistogramSearch:
         self.showLanes(window_img, self.rightLane)
 
         result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-        leftR = self.leftLane.getCurrentRadiusOfCurvature(img.shape[0])
-        rightR = self.rightLane.getCurrentRadiusOfCurvature(img.shape[0])
-        leftX = self.leftLane.applyCurrent(img.shape[0])
-        rightX = self.rightLane.applyCurrent(img.shape[0])
-        delta = np.absolute(img.shape[1]/2.0 - (leftX + rightX)/2.0) * self.leftLane.xm_per_pix
-        logging.info("Left radius: {}m, right radius: {}m, deviationFromCenter: {}m".format(leftR, rightR, delta))
-        plt.imshow(result)
-        plt.show()
+        (leftR, rightR, laneWidth, delta) = self.getLaneStats(img.shape[0], img.shape[1])
+        str1 = "Left radius: {:.2f}m, right radius: {:.2f}m".format(leftR, rightR)
+        logging.info(str1)
+        str2 = "DeviationFromCenter: {:.2f}m Lane width: {:.2f}m".format(delta, laneWidth)
+        logging.info(str2)
 
+        cv2.putText(result, str1, (100, 100), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255))
+        cv2.putText(result, str2, (100, 250), cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255))
+        return result
+
+    def getLaneStats(self, ymax, xmax):
+        return HistogramSearch.getInitialLaneStats(self.leftLane.roc_fit, self.rightLane.roc_fit, ymax, xmax)
+
+    def getInitialLaneStats(leftROCFit, rightROCFit, ymax, xmax):
+        leftR = Line.getROC(leftROCFit, ymax)
+        rightR = Line.getROC(rightROCFit, ymax)
+        leftX = leftROCFit(ymax * Line.ym_per_pix)
+        rightX = rightROCFit(ymax * Line.ym_per_pix)
+        laneWidth = (rightX - leftX)
+        delta = np.absolute(xmax * Line.xm_per_pix/ 2.0 - (leftX + rightX) / 2.0)
+        return (leftR, rightR, laneWidth, delta)
+
+    def sanityCheck(self, lefty, leftx, righty, rightx, shape):
+        result = True
+        if len(lefty) < HistogramSearch.minPointsForValidFit or len(righty) < HistogramSearch.minPointsForValidFit:
+            logging.info("Not enough points, left = {}, right = {}".format(len(lefty), len(righty)))
+            result = False
+        else:
+            leftFit = np.poly1d(np.polyfit(lefty, leftx, 2))
+            leftROCFit = np.poly1d(np.polyfit(lefty * Line.ym_per_pix, leftx * Line.xm_per_pix, 2))
+            rightFit = np.poly1d(np.polyfit(righty, rightx, 2))
+            rightROCFit = np.poly1d(np.polyfit(righty * Line.ym_per_pix, rightx * Line.xm_per_pix, 2))
+            (leftR, rightR, laneWidth, delta) = HistogramSearch.getInitialLaneStats(leftROCFit, rightROCFit, shape[0],
+                                                                                    shape[1])
+            if (laneWidth > 4 or laneWidth < 3) or (leftR < 500 or rightR < 500):
+                logging.info("lane width: {}, leftR: {}, rightR: {}".format(laneWidth, leftR, rightR))
+                result = False
+
+        return result
 
 if __name__ == "__main__":
-    testImage = "output_images/perspective_transform/test_images/test3.jpg"
-    img = cv2.imread(testImage)
-    search = HistogramSearch()
-    search.fullLineSearch(img)
-    search.lineSearch(img)
-    search.showSearchResult(img)
+    testImage = "output_images/perspective_transform/test_images/*.jpg"
+    images = glob.glob(testImage)
+    outputdir = "output_images/window_search/"
+
+    for i, fname in enumerate(images):
+        logging.info("Working on {}".format(fname))
+        search = HistogramSearch()
+        img = cv2.imread(fname)
+        search.fullLineSearch(img)
+        output = search.showSearchResult(img)
+        outputFile = outputdir + fname
+        # logging.info("Saving {}".format(outputFile))
+        # cv2.imwrite(outputFile, output)
