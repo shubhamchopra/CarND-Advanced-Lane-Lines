@@ -38,9 +38,9 @@ The goals / steps of this project are the following:
 The code for this step is contained in the file `src/main/python/transforms/CameraCalibration.py`. Camera calibration involves reading chessboard images taken from the camera. We start with setting "object points" which are (x, y, z) coordinates of the chessboard corners in the world. In these images we assume z = 0, implying the chessboard is lying flat on x-y plane. These points stay the same for all calibration images, so we just replicate them for each image. We use OpenCV to get "image
 points" which are the actual coordinates of chessboard corners in the image. If we are able to successfully find these, we append both the object and image points to a list. This is done in line 24 to line 37 in the code.
 
-Once we have the set of points from various images, we then compute camera calibration and distortion coefficients using `cv2.calibrateCamera()`. I store the distortion coefficients for use in the processing pipeline later. I do this on lne 43.
-![Camera Calibration Original](./camera_cal/calibration2.jpg =250x)
-![Camera Calibration Undistorted](./output_images/camera_cal/calibration2.jpg =250x)
+Once we have the set of points from various images, we then compute camera calibration and distortion coefficients using `cv2.calibrateCamera()`. I store the distortion coefficients for use in the processing pipeline later. I do this on line 43.
+<img src="./camera_cal/calibration2.jpg" width="200">
+<img src="./output_images/camera_cal/calibration2.jpg" width="200">
 
 ###Pipeline (single images)
 
