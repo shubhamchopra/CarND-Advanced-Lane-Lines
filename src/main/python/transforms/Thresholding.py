@@ -13,22 +13,18 @@ class Thresholding(Transform):
         self._kernel_size = kernel_size
 
     def _transformFunc(self, image):
+        '''
+        We apply a hybrid transformation here. We first get the Sobel gradient in X direction.
+        We then convert the image to HLS and extract the S component
+        We then create a mask that is set if either of these two are set
+        :param image: input 3 channel image in BGR
+        :return: a 3 channel image with the same thresholded channel repeated
+        '''
         def sobelX(im):
-            return np.absolute(cv2.Sobel(im, cv2.CV_64F, 1, 0, ksize=self._kernel_size))
-        def sobelY(im):
-            return np.absolute(cv2.Sobel(im, cv2.CV_64F, 0, 1, ksize=self._kernel_size))
-        def sobel(dim, im):
             gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-            if dim == 'x':
-                return sobelX(gray)
-            elif dim == 'y':
-                return sobelY(gray)
-            else:
-                X = sobelX(gray)
-                Y = sobelY(gray)
-                return np.sqrt(np.square(X) + np.square(Y))
+            return np.absolute(cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=self._kernel_size))
         def sChannel(im):
-            hls = cv2.cvtColor(im, cv2.COLOR_RGB2HLS)
+            hls = cv2.cvtColor(im, cv2.COLOR_BGR2HLS)
             return hls[:, :, 2]
         def scaleAndThreshold(im, threshold):
             image = np.uint8(im * 255.0 / np.max(im))
@@ -36,7 +32,7 @@ class Thresholding(Transform):
             mask[(image >= threshold[0]) & (image <= threshold[1])] = 1
             return mask
 
-        sobelIm = sobel("x", image)
+        sobelIm = sobelX(image)
         sobelMask = scaleAndThreshold(sobelIm, self._sobel_thresh)
 
         sChan = sChannel(image)

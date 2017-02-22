@@ -28,8 +28,10 @@ class CameraCalibration(Transform):
         objPoints = []
         imgPoints = []
 
+        # for all images, we find out the corners as best as we can, and append everything to the
+        # imgpoints and objpoints lists
         for i, fname in enumerate(self._images):
-            corners = self._generateImgPoints(fname)
+            corners = self._getChessboardCorners(fname)
             if len(corners) > 0:
                 objPoints.append(objp)
                 imgPoints.append(corners)
@@ -37,7 +39,10 @@ class CameraCalibration(Transform):
         if len(imgPoints) > 0:
             # we only calibrate if we were able to detect image points
             ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objPoints, imgPoints, self._imgSize, None, None)
+            # we put all the calibration related matrices into a dictionary for later use
             self._cameraCalibrationData = {"ret": ret, "mtx": mtx, "dist": dist, "rvecs": rvecs, "tvecs": tvecs}
+            # once this is complete, we are now ready to run undistortion transformation using the
+            # transform function
             logging.info("Calibrating for image size {}".format(self._imgSize))
         else:
             raise RuntimeError("Unable to detect chess board points in these images {}".format(self._images))
@@ -46,7 +51,7 @@ class CameraCalibration(Transform):
             raise RuntimeError("Unable to calibrate with the images in {}".format(self._images))
 
 
-    def _generateImgPoints(self, fname):
+    def _getChessboardCorners(self, fname):
         img = cv2.imread(fname)
         if self._imgSize is None:
             self._imgSize = img.shape[0:2]
@@ -67,6 +72,12 @@ class CameraCalibration(Transform):
 
 
     def transform(self, img):
+        '''
+        This function takes an image and applies using the camera matrices initiated in the constructor
+        undistorts the input image
+        :param img:
+        :return:
+        '''
         imgSize = img.shape[0:2]
         srcImage = img
         if imgSize != self._imgSize:
