@@ -1,7 +1,7 @@
-**Advanced Lane Finding Project
+**Advanced Lane Finding Project**
 ---
 
-***Running the code
+***Running the code***
 The environment needed to run this code can be found [here](./carnd-term1.yml)
 The code can be run using the following command:
 `python src/main/python/Main.py`
@@ -39,8 +39,8 @@ The code for this step is contained in the file `src/main/python/transforms/Came
 points" which are the actual coordinates of chessboard corners in the image. If we are able to successfully find these, we append both the object and image points to a list. This is done in line 24 to line 37 in the code.
 
 Once we have the set of points from various images, we then compute camera calibration and distortion coefficients using `cv2.calibrateCamera()`. I store the distortion coefficients for use in the processing pipeline later. I do this on lne 43.
-![alt text][camera_cal_orig]
-![alt_test][camera_cal_undist]
+![alt text][camera_cal_orig =250x]
+![alt text][camera_cal_undist =250x]
 
 ###Pipeline (single images)
 
