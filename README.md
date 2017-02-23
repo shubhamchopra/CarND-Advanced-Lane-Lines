@@ -2,11 +2,14 @@
 ---
 
 ***Running the code***
+
 The environment needed to run this code can be found [here](./lane-lines.yml). The code can be run using the following command:
 
 `python src/main/python/Main.py`
 
 The code assumes that you have camera calibration images in a folder named `camera_cal`.
+
+---
 
 Overall steps of this project are the following:
 
@@ -89,10 +92,10 @@ Once we get the lane, we apply appropriate mask on it like shown [here](./src/ma
 
 <img src="./output_images/final.jpg" width="500">
 
-####7. Final video
+### Final video
 The final output video looks like [this](./project_video_output.mp4).
 
-####8. Conclusion
+### Conclusion
 We used several computer vision techniques to come up with heuristics that can help us detect lanes with a fair degree of accuracy. All these heuristics are dependent on the brightness levels in the original image, the color of the road, the visibility of the lane lines, turns and such. Experimenting with the _challenge_ video and the _harder_challenge_ video shows some more realistic driving conditions where the roads are not freshly paved, so the lane markers are faded, and become hard to distinguish from the color of the road, specially in bright and sunny conditions, or there are constant shadows and places where the turns are so sharp the lane marker doesn't come into the view of the camera. 
 
 Some of these challenges can likely be solved with coming up with a bunch of different thresholding, transformation and other configurations that work well under different and more challenging conditions. Lane detection can also likely be improved by using Hough transformation.
